@@ -1,8 +1,8 @@
 def square(n):
-    """Return the squares of a and b as a pair."""
-    if not (isinstance(n, int) or  isinstance(n, float)):
+    """Return the square of n."""
+    if isinstance(n, bool) or not isinstance(n, (int, float)):
         raise TypeError("n must be int or float")
-    return n**n
+    return n**2
 
 
 def factorial(n):
