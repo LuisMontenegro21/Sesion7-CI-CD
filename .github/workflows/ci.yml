@@ -1,0 +1,69 @@
+name: CI
+
+# Corre las pruebas en cada Pull Request hacia dev, QA o main,
+# y en cada push directo a esas ramas.
+on:
+  pull_request:
+    branches: [main, QA, dev]
+  push:
+    branches: [main, QA, dev]
+  workflow_dispatch:
+
+# Si se hace otro push al mismo PR, cancela la ejecución anterior.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  branch-flow:
+    name: Flujo de ramas
+    # Solo aplica a Pull Requests: valida que se respete dev -> QA -> main.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar rama origen
+        env:
+          HEAD: ${{ github.head_ref }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          echo "PR: $HEAD -> $BASE"
+          case "$BASE" in
+            main)
+              if [ "$HEAD" != "QA" ] && [ "$HEAD" != "dev" ]; then
+                echo "::error::A main (prod) solo se puede integrar desde QA o dev (recibido: $HEAD)."
+                exit 1
+              fi
+              ;;
+            QA)
+              if [ "$HEAD" != "dev" ]; then
+                echo "::error::A QA solo se puede integrar desde dev (recibido: $HEAD)."
+                exit 1
+              fi
+              ;;
+          esac
+          echo "Flujo de ramas válido."
+
+  tests:
+    name: Pruebas unitarias
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Ejecutar pruebas
+        run: python -m pytest -v

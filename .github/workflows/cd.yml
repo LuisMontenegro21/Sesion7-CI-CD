@@ -1,0 +1,65 @@
+name: CD
+
+# Simula el despliegue cuando un cambio se integra (merge) a QA o main.
+#   QA   -> ambiente "staging"
+#   main -> ambiente "production"
+on:
+  push:
+    branches: [main, QA]
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Pruebas unitarias
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Ejecutar pruebas
+        run: python -m pytest -v
+
+  deploy:
+    name: Deploy a ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    needs: tests
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Empaquetar artefacto
+        run: |
+          mkdir -p dist
+          cp math.py dist/
+          echo "${GITHUB_SHA}" > dist/VERSION
+
+      - name: Publicar artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: math-lib-${{ github.ref_name }}-${{ github.sha }}
+          path: dist/
+
+      - name: Deploy (simulado)
+        run: |
+          echo "Desplegando commit ${GITHUB_SHA::7} de la rama ${GITHUB_REF_NAME}"
+          echo "Ambiente: ${{ github.ref_name == 'main' && 'production' || 'staging' }}"
+          echo "Deploy completado."
