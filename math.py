@@ -1,6 +1,6 @@
 def square(n):
     """Return the square of n."""
-    if isinstance(n, bool) or not isinstance(n, (int, float)):
+    if not isinstance(n, bool) or not isinstance(n, (int, float)):
         raise TypeError("n must be int or float")
     return n**2
 
